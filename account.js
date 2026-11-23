@@ -80,6 +80,7 @@ el('reset').onclick=async()=>{if(!el('email').reportValidity())return;try{await 
 function encodeJournal(journal){
  const courses=journal.courses.map(course=>({
   ...course,
+  assignments:course.assignments.map(assignment=>({...assignment})),
   categoryWeights:Object.entries(course.categoryWeights||{}).map(([name,weight])=>({name,weight})),
   folderColors:Object.entries(course.folderColors||{}).map(([name,color])=>({name,color}))
  }));
@@ -100,7 +101,7 @@ function decodeJournal(saved){
   courses:Object.values(courses||{}).map(course=>({
    ...course,
    assignments:Object.values(course.assignments||{}).map(assignment=>({
-    ...assignment,earned:assignment.earned??null
+    ...assignment,earned:assignment.earned??null,pdfId:assignment.pdfId??null
    })),
    categoryWeights:Object.fromEntries(Object.values(course.categoryWeights||{}).map(({name,weight})=>[name,weight])),
    folderColors:Object.fromEntries(Object.values(course.folderColors||{}).map(({name,color})=>[name,color]))
