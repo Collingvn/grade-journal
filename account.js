@@ -108,6 +108,8 @@ async function loadJournal(user){
   const snapshot=await get(journalRef),saved=snapshot.val();
   version=saved?.version||0;
   if(saved?.document){const journal=JSON.parse(saved.document);if(!Array.isArray(journal.courses))throw Error('Invalid journal');window.accountJournal=journal;}
+  const journal=window.accountJournal;
+  if(typeof journal.student!=='string' || !journal.student.trim())journal.student=user.displayName?.trim() || '';
   await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./app.js';script.onload=resolve;script.onerror=reject;document.body.append(script);});
   el('auth-view').hidden=true;el('signup-view').hidden=true;document.querySelector('header').hidden=false;document.querySelector('main').hidden=false;status('Saved to your account');
  }catch(e){
