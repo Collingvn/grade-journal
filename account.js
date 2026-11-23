@@ -76,15 +76,48 @@ signupForm.onsubmit=async event=>{
  }
 };
 el('reset').onclick=async()=>{if(!el('email').reportValidity())return;try{await sendPasswordResetEmail(auth,el('email').value.trim());el('auth-error').textContent='If an account exists, a reset email will arrive shortly.';}catch(e){el('auth-error').textContent=errorMessage(e);}};
+// Category names are values because Firebase keys cannot contain characters like "." or "/".
+function encodeJournal(journal){
+ const courses=journal.courses.map(course=>({
+  ...course,
+  categoryWeights:Object.entries(course.categoryWeights||{}).map(([name,weight])=>({name,weight})),
+  folderColors:Object.entries(course.folderColors||{}).map(([name,color])=>({name,color}))
+ }));
+ return {...journal,courses,schemaVersion:1};
+}
+
+function decodeJournal(saved){
+ if(saved.schemaVersion!==1){
+  if(typeof saved.document!=='string')throw Error('Invalid journal');
+  const journal=JSON.parse(saved.document);
+  if(!Array.isArray(journal.courses))throw Error('Invalid journal');
+  return journal;
+ }
+
+ const {schemaVersion,version,courses,...journal}=saved;
+ return {
+  ...journal,
+  courses:Object.values(courses||{}).map(course=>({
+   ...course,
+   assignments:Object.values(course.assignments||{}).map(assignment=>({
+    ...assignment,earned:assignment.earned??null
+   })),
+   categoryWeights:Object.fromEntries(Object.values(course.categoryWeights||{}).map(({name,weight})=>[name,weight])),
+   folderColors:Object.fromEntries(Object.values(course.folderColors||{}).map(({name,color})=>[name,color]))
+  }))
+ };
+}
+
 window.queueJournalSave=()=>{if(blocked)return;pending=true;status('Saving…');clearTimeout(timer);timer=setTimeout(flush,400);};
 async function flush(){
  if(running||blocked||!pending||!journalRef)return;
  running=true;pending=false;
- const document=JSON.stringify(window.readJournal()),expected=version;
+ const expected=version;
  try{
+  const journal=encodeJournal(window.readJournal());
   const result=await runTransaction(journalRef,current=>{
    if((current?.version||0)!==expected)return;
-   return {document,version:expected+1};
+   return {...journal,version:expected+1};
   },{applyLocally:false});
   if(!result.committed){blocked=true;pending=true;status('Journal changed in another tab. Export your changes, then reload.');return;}
   version=expected+1;status(pending?'Saving…':'Saved to your account');el('retry-save').hidden=true;
@@ -107,7 +140,7 @@ async function loadJournal(user){
   journalRef=ref(db,'users/'+user.uid+'/journal');
   const snapshot=await get(journalRef),saved=snapshot.val();
   version=saved?.version||0;
-  if(saved?.document){const journal=JSON.parse(saved.document);if(!Array.isArray(journal.courses))throw Error('Invalid journal');window.accountJournal=journal;}
+  if(saved)window.accountJournal=decodeJournal(saved);
   const journal=window.accountJournal;
   if(typeof journal.student!=='string' || !journal.student.trim())journal.student=user.displayName?.trim() || '';
   await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./app.js';script.onload=resolve;script.onerror=reject;document.body.append(script);});
