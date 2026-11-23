@@ -1,6 +1,6 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,signOut,updateProfile} from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js';
-import {getDatabase,ref,get,runTransaction} from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-database.js';
+import {getDatabase,ref,onValue,runTransaction} from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-database.js';
 import {firebaseConfig} from './firebase-config.js';
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
 const el=id=>document.getElementById(id);
@@ -138,7 +138,11 @@ async function loadJournal(user){
  loadedUid=user.uid;window.journalUserId=user.uid;
  try{
   journalRef=ref(db,'users/'+user.uid+'/journal');
-  const snapshot=await get(journalRef),saved=snapshot.val();
+  // Keep the journal in Firebase’s local cache between versioned transactions.
+  const snapshot=await new Promise((resolve,reject)=>{
+   onValue(journalRef,resolve,reject);
+  });
+  const saved=snapshot.val();
   version=saved?.version||0;
   if(saved)window.accountJournal=decodeJournal(saved);
   const journal=window.accountJournal;
